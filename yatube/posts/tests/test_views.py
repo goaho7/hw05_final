@@ -245,15 +245,7 @@ class PostViewTest(TestCase):
         """ Новая запись пользователя появляется в ленте тех,
         кто на него подписан.
         """
-        data = {
-            'user': self.user.id,
-            'author': self.user2.id,
-        }
-        self.authorized_client.post(
-            reverse('posts:profile_follow',
-                    kwargs={'username': self.user2.username}),
-            data=data, follow=True
-        )
+        Follow.objects.create(user=self.user, author=self.user2)
         post = Post.objects.create(
             author=self.user2,
             text='Тестовый пост в ленте',
@@ -345,7 +337,7 @@ class CommentViewsTest(TestCase):
         )
         self.assertIsInstance(response.context['comments'][0], Comment)
 
-    def test_unauthorized_user_cannot_edit_posts(self):
+    def test_only_authorized_user_can_comment_on_posts(self):
         """ Неавторизованный пользователь не может комментировать посты.
         """
         post_count = Comment.objects.count()

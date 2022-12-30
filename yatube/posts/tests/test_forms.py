@@ -4,6 +4,7 @@ import tempfile
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import models
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
@@ -76,8 +77,9 @@ class PostFormTest(TestCase):
                 text=form_data['text'],
             ).exists()
         )
-        self.assertEqual(Post.objects.get(image=form_data['image']).image,
-                         form_data['image'])
+        self.assertTrue(
+            Post.objects.filter(text=form_data['text']).first().image
+        )
 
     def test_create_post_with_group(self):
         """Форма создает запись в Post с группой."""
@@ -103,8 +105,10 @@ class PostFormTest(TestCase):
                 group=self.group.id
             ).exists()
         )
-        self.assertEqual(Post.objects.get(image=form_data_with_group['image'])
-                         .image, form_data_with_group['image'])
+        self.assertEqual(
+            Post.objects.get(image=form_data_with_group['image']).image,
+            form_data_with_group['image']
+        )
 
     def test_edit_post(self):
         """Форма редактирует запись в Post."""
