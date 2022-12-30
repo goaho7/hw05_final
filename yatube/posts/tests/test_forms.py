@@ -60,6 +60,7 @@ class PostFormTest(TestCase):
         post_count = Post.objects.count()
         form_data = {
             'text': 'Добавленный текст 1',
+            'image': self.post.image
         }
         response = self.authorized_client.post(
             reverse('posts:post_create'),
@@ -75,13 +76,16 @@ class PostFormTest(TestCase):
                 text=form_data['text'],
             ).exists()
         )
+        self.assertEqual(Post.objects.get(image=form_data['image']).image,
+                         form_data['image'])
 
     def test_create_post_with_group(self):
         """Форма создает запись в Post с группой."""
         post_count = Post.objects.count()
         form_data_with_group = {
             'text': 'Добавленный текст 2',
-            'group': self.group.id
+            'group': self.group.id,
+            'image': self.post.image,
         }
         response_with_group = self.authorized_client.post(
             reverse('posts:post_create'),
@@ -99,6 +103,8 @@ class PostFormTest(TestCase):
                 group=self.group.id
             ).exists()
         )
+        self.assertEqual(Post.objects.get(image=form_data_with_group['image'])
+                         .image, form_data_with_group['image'])
 
     def test_edit_post(self):
         """Форма редактирует запись в Post."""

@@ -34,8 +34,10 @@ class Post(models.Model):
     )
     image = models.ImageField(
         'Картинка',
+        help_text='Выберите изображение к посту',
         upload_to='posts/',
-        blank=True
+        blank=True,
+        null=True,
     )
 
     class Meta:
@@ -72,13 +74,9 @@ class Follow(models.Model):
         User,
         on_delete=models.CASCADE,
         related_name='follower',
-        blank=True,
-        null=True,
     )
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='following',
-        blank=True,
-        null=True,
     )

@@ -89,3 +89,9 @@ class PostUrlsTest(TestCase):
     def test_page_404(self):
         response = self.guest_client.get('unexisting_page')
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+
+    def test_404_page_returns_custom_template(self):
+        """ Страница 404 отдаёт кастомный шаблон. """
+        response = self.guest_client.get("404")
+        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+        self.assertTemplateUsed(response, 'core/404.html')

@@ -50,24 +50,24 @@ class PostViewTest(TestCase):
             group=cls.group,
             image=uploaded,
         )
-        cls.urls_template = namedtuple('urls_template', 'name kwargs template')
+        cls.UrlsTemplate = namedtuple('UrlsTemplate', 'name kwargs template')
         cls.urls = {
-            'index': cls.urls_template('posts:index', None,
-                                       'posts/index.html',),
-            'group_list': cls.urls_template('posts:group_list',
-                                            {'slug': cls.group.slug},
-                                            'posts/group_list.html'),
-            'profile': cls.urls_template('posts:profile',
-                                         {'username': cls.user.username},
-                                         'posts/profile.html'),
-            'post_detail': cls.urls_template('posts:post_detail',
-                                             {'post_id': cls.post.id},
-                                             'posts/post_detail.html'),
-            'post_create': cls.urls_template('posts:post_create', None,
-                                             'posts/create_post.html'),
-            'post_edit': cls.urls_template('posts:post_edit',
-                                           {'post_id': cls.post.id},
-                                           'posts/create_post.html'),
+            'index': cls.UrlsTemplate('posts:index', None,
+                                      'posts/index.html',),
+            'group_list': cls.UrlsTemplate('posts:group_list',
+                                           {'slug': cls.group.slug},
+                                           'posts/group_list.html'),
+            'profile': cls.UrlsTemplate('posts:profile',
+                                        {'username': cls.user.username},
+                                        'posts/profile.html'),
+            'post_detail': cls.UrlsTemplate('posts:post_detail',
+                                            {'post_id': cls.post.id},
+                                            'posts/post_detail.html'),
+            'post_create': cls.UrlsTemplate('posts:post_create', None,
+                                            'posts/create_post.html'),
+            'post_edit': cls.UrlsTemplate('posts:post_edit',
+                                          {'post_id': cls.post.id},
+                                          'posts/create_post.html'),
         }
 
     @classmethod
@@ -98,6 +98,7 @@ class PostViewTest(TestCase):
         self.assertIsInstance(first_object.group, Group)
         self.assertIsInstance(first_object.author, User)
         self.assertEqual(first_object.text, self.post.text)
+        self.assertEqual(first_object.image, self.post.image)
 
     def test_index_page_show_correct_context(self):
         """Шаблон index сформирован с правильным контекстом."""
@@ -126,9 +127,8 @@ class PostViewTest(TestCase):
                           'post')
 
     def test_post_edit_create_show_correct_context(self):
-        """
-            Шаблоны post_edit и post_create сформированы
-            с правильным контекстом.
+        """ Шаблоны post_edit и post_create сформированы
+        с правильным контекстом.
         """
         pages_names = [
             reverse(self.urls['post_create'].name),
@@ -195,58 +195,14 @@ class PostViewTest(TestCase):
                     kwargs=self.urls['group_list'].kwargs))
         self.assertEqual(len(response.context['page_obj']), 1)
 
-    def test_image_is_passed_in_the_context_dictionary(self):
-        """ Изображение передаётся в словаре context. """
-        urls = {
-            'index': 'page_obj',
-            'group_list': 'page_obj',
-            'profile': 'page_obj',
-            'post_detail': 'post',
-        }
-        for name, con in urls.items():
-            with self.subTest(name=name):
-                response = self.authorized_client.get(
-                    reverse(self.urls[name].name,
-                            kwargs=self.urls[name].kwargs))
-                if con == 'post':
-                    first_object = response.context.get(con)
-                else:
-                    self.assertIsInstance(response.context.get(con), Page)
-                    first_object = response.context.get(con)[0]
-                self.assertEqual(first_object.image, self.post.image)
-
-    def test_only_authorized_users_can_comment_on_posts(self):
-        """
-            Комментировать посты может только авторизованный пользователь.
-            После успешной отправки комментарий появляется на странице поста.
-        """
-        post_count = Comment.objects.count()
-        form_data = {
-            'post': self.post.id,
-            'author': self.user.id,
-            'text': 'Комментарий',
-        }
-        self.guest_client.post(
-            reverse('posts:add_comment', kwargs={'post_id': self.post.id}),
-            data=form_data, follow=True
-        )
-        self.assertEqual(Comment.objects.count(), post_count)
-        self.authorized_client.post(
-            reverse('posts:add_comment', kwargs={'post_id': self.post.id}),
-            data=form_data, follow=True
-        )
-        self.assertEqual(Comment.objects.count(), post_count + 1)
-        response = self.guest_client.post(
-            reverse(self.urls['post_detail'].name,
-                    kwargs=self.urls['post_detail'].kwargs),
-            data=form_data, follow=True
-        )
-        self.assertIsInstance(response.context['comments'][0], Comment)
-
     def test_cache_validation(self):
         """ Тест работы кеша """
+        post = Post.objects.create(
+            author=self.user,
+            text='Тестирование кеша пост',
+        )
         response = self.authorized_client.get(reverse(self.urls['index'].name))
-        Post.objects.filter(author=self.user).delete()
+        Post.objects.filter(text=post.text).delete()
         response_del = self.authorized_client.get(
             reverse(self.urls['index'].name))
         self.assertEqual(response.content, response_del.content)
@@ -255,15 +211,9 @@ class PostViewTest(TestCase):
             reverse(self.urls['index'].name))
         self.assertNotEqual(response.content, response_clear.content)
 
-    def test_404_page_returns_custom_template(self):
-        """ Страница 404 отдаёт кастомный шаблон. """
-        response = self.authorized_client.get("404")
-        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
-        self.assertTemplateUsed(response, 'core/404.html')
-
     def test_authorized_user_subscribe_unsubscribe(self):
         """ Авторизованный пользователь может подписываться
-            на других пользователей и удалять их из подписок.
+        на других пользователей.
         """
         post_count = Follow.objects.count()
         data = {
@@ -276,16 +226,25 @@ class PostViewTest(TestCase):
             data=data, follow=True
         )
         self.assertEqual(Follow.objects.count(), post_count + 1)
+
+    def test_authorized_user_unsubscribe(self):
+        """ Авторизованный пользователь может удалять подписки на авторов.
+        """
+        Follow.objects.create(user=self.user, author=self.user2)
+        data = {
+            'user': self.user.id,
+            'author': self.user2.id,
+        }
         self.authorized_client.post(
             reverse('posts:profile_unfollow',
                     kwargs={'username': self.user2.username}),
             data=data, follow=True
         )
-        self.assertEqual(Follow.objects.count(), post_count)
+        self.assertEqual(Follow.objects.count(), 0)
 
     def test_new_user_entry_appears_in_the_feed(self):
         """ Новая запись пользователя появляется в ленте тех,
-            кто на него подписан и не появляется в ленте тех, кто не подписан.
+        кто на него подписан.
         """
         data = {
             'user': self.user.id,
@@ -303,12 +262,16 @@ class PostViewTest(TestCase):
         response = self.authorized_client.get(reverse('posts:follow_index'))
         self.assertEqual(response.context['page_obj'][0], post)
 
-        """ user_unsigned = User.objects.create_user(username='unsigned')
-        self.authorized_client2 = Client()
-        self.authorized_client2.force_login(user_unsigned)
-        response_unsigned = self.authorized_client2.get(
-            reverse('posts:follow_index'))
-        self.assertFalse(response_unsigned.context['page_obj']) """
+    def test_post_doesnt_show_up_where_it_shouldnt(self):
+        """ Новая запись пользователя не появляется в ленте тех,
+        кто на него не подписан.
+        """
+        Post.objects.create(
+            author=self.user2,
+            text='Тестовый пост в ленте',
+        )
+        response = self.authorized_client.get(reverse('posts:follow_index'))
+        self.assertFalse(response.context['page_obj'])
 
 
 class PaginatorViewsTest(TestCase):
@@ -347,3 +310,51 @@ class PaginatorViewsTest(TestCase):
                                  settings.PAGINATION)
                 self.assertEqual(len(response2.context['page_obj']),
                                  Post.objects.count() - settings.PAGINATION)
+
+
+class CommentViewsTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = User.objects.create_user(username='auth')
+        cls.post = Post.objects.create(
+            author=cls.user,
+            text='Тестовый пост для комментария',
+            )
+
+    def setUp(self):
+        self.guest_client = Client()
+        self.authorized_client = Client()
+        self.authorized_client.force_login(self.user)
+
+    def test_authorized_users_can_comment_on_posts(self):
+        """  Авторизованный пользователь может комментировать посты.
+        После успешной отправки комментарий появляется на странице поста.
+        """
+        post_count = Comment.objects.count()
+        form_data = {
+            'text': 'Комментарий',
+        }
+        self.authorized_client.post(
+            reverse('posts:add_comment', kwargs={'post_id': self.post.id}),
+            data=form_data, follow=True
+        )
+        self.assertEqual(Comment.objects.count(), post_count + 1)
+        response = self.guest_client.post(
+            reverse('posts:post_detail', kwargs={'post_id': self.post.id}),
+            data=form_data, follow=True
+        )
+        self.assertIsInstance(response.context['comments'][0], Comment)
+
+    def test_unauthorized_user_cannot_edit_posts(self):
+        """ Неавторизованный пользователь не может комментировать посты.
+        """
+        post_count = Comment.objects.count()
+        form_data = {
+            'text': 'Комментарий',
+        }
+        self.guest_client.post(
+            reverse('posts:add_comment', kwargs={'post_id': self.post.id}),
+            data=form_data, follow=True
+        )
+        self.assertEqual(Comment.objects.count(), post_count)
