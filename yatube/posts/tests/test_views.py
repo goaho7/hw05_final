@@ -1,7 +1,6 @@
 import shutil
 import tempfile
 from collections import namedtuple
-from http import HTTPStatus
 
 from django import forms
 from django.conf import settings
@@ -320,7 +319,7 @@ class CommentViewsTest(TestCase):
         cls.post = Post.objects.create(
             author=cls.user,
             text='Тестовый пост для комментария',
-            )
+        )
 
     def setUp(self):
         self.guest_client = Client()
